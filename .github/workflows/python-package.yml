@@ -40,6 +40,7 @@ jobs:
         pytest tests/*
 
   django:
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -63,6 +64,7 @@ jobs:
         python manage.py test tests
 
   django-pytest:
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -86,6 +88,7 @@ jobs:
         pytest tests/*
 
   fastapi-pytest:
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
