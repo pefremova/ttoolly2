@@ -120,8 +120,9 @@ jobs:
         python -m pip install pytest fastapi==${{ matrix.fastapi-version }} coverage
     - name: Run Tests
       run: |
-        cd test_projects/fast_api_project &&
+        cd test_projects/fast_api_project
         coverage run --data-file=coverage-fastapi-pytest-${{ matrix.python-version }}-${{ matrix.fastapi-version }} -m pytest tests/* -vv
+        ls
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
       with:
