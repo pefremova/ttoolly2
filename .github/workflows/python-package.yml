@@ -46,7 +46,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"]
-        django-version: ["3.2", "4.0", "4.1", "4.2", "5.0"]
+        django-version: ["3.2", "4.0", "4.1", "4.2", "5.0a1"]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -70,7 +70,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"]
-        django-version: ["3.2", "4.0", "4.1", "4.2", "5.0"]
+        django-version: ["3.2", "4.0", "4.1", "4.2", "5.0a1"]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -105,7 +105,8 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install -e .
-        python -m pip install pytest pytest-django fastapi==${{ matrix.fastapi-version }}
+        python -m pip install -r test_projects/fast_api_project/requirements.pip
+        python -m pip install pytest fastapi==${{ matrix.fastapi-version }}
     - name: Run Tests
       run: |
         cd test_projects/fast_api_project
