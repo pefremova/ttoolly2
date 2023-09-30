@@ -36,7 +36,6 @@ jobs:
     - name: Test with pytest
       run: |
         coverage run --data-file=coverage-main-${{ matrix.python-version }} -m pytest tests/* 
-        ls
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
       with:
@@ -65,7 +64,7 @@ jobs:
     - name: Run Tests
       run: |
         cd test_projects/django_project
-        coverage run --data-file=coverage-django-${{ matrix.python-version }}-${{ matrix.django-version }} -m python manage.py test tests
+        coverage run --data-file=coverage-django-${{ matrix.python-version }}-${{ matrix.django-version }} -m manage.py test tests
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
       with:
