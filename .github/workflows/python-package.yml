@@ -49,7 +49,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"]
-        django-version: ["3.2"] #, "4.0", "4.1", "4.2", "5.0a1"]
+        django-version: ["3.2", "4.0", "4.1", "4.2", "5.0a1"]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -78,7 +78,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"]
-        django-version: ["3.2"] #, "4.0", "4.1", "4.2", "5.0a1"]
+        django-version: ["3.2", "4.0", "4.1", "4.2", "5.0a1"]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -145,7 +145,6 @@ jobs:
         name: report
     - name: Generate coverage report
       run: |
-        ls
         coverage combine coverage-*
         coverage xml --include "ttoolly/*"
     - name: Upload coverage to Codecov
