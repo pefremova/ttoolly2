@@ -145,9 +145,9 @@ jobs:
         name: report
     - name: Generate coverage report
       run: |
-        coverage combine report
-        coverage xml
         ls
+        coverage combine coverage-*
+        coverage xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
       env:
