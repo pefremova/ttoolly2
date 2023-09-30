@@ -11,13 +11,11 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11"]
-
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -38,6 +36,7 @@ jobs:
     - name: Test with pytest
       run: |
         coverage run --data-file=coverage-main-${{ matrix.python-version }} -p -m pytest tests/* 
+        ls
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
       with:
@@ -62,7 +61,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install -e .
-        python -m pip install Django==${{ matrix.django-version }}
+        python -m pip install Django==${{ matrix.django-version }} coverage
     - name: Run Tests
       run: |
         cd test_projects/django_project
@@ -91,7 +90,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install -e .
-        python -m pip install pytest pytest-django Django==${{ matrix.django-version }}
+        python -m pip install pytest pytest-django Django==${{ matrix.django-version }} coverage
     - name: Run Tests
       run: |
         cd test_projects/django_project
@@ -121,7 +120,7 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install -e .
         python -m pip install -r test_projects/fast_api_project/requirements.pip
-        python -m pip install pytest fastapi==${{ matrix.fastapi-version }}
+        python -m pip install pytest fastapi==${{ matrix.fastapi-version }} coverage
     - name: Run Tests
       run: |
         cd test_projects/fast_api_project
