@@ -62,12 +62,14 @@ jobs:
         python -m pip install -e .
         python -m pip install Django==${{ matrix.django-version }} coverage
     - name: Run Tests
-      run: cd test_projects/django_project && coverage run --data-file=coverage-django-${{ matrix.python-version }}-${{ matrix.django-version }} manage.py test tests -v2 && ls
+      run: |
+        cd test_projects/django_project
+        coverage run --data-file=coverage-django-${{ matrix.python-version }}-${{ matrix.django-version }} manage.py test tests -v2
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
       with:
         name: report
-        path: coverage-django-${{ matrix.python-version }}-${{ matrix.django-version }}
+        path: test_projects/django_project/coverage-django-${{ matrix.python-version }}-${{ matrix.django-version }}
 
   django-pytest:
     needs: build
@@ -90,13 +92,13 @@ jobs:
         python -m pip install pytest pytest-django Django==${{ matrix.django-version }} coverage
     - name: Run Tests
       run: |
-        cd test_projects/django_project &&
+        cd test_projects/django_project
         coverage run --data-file=coverage-django-pytest-${{ matrix.python-version }}-${{ matrix.django-version }} -m pytest tests/**.py -vv
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
       with:
         name: report
-        path: coverage-django-pytest-${{ matrix.python-version }}-${{ matrix.django-version }}
+        path: test_projects/django_project/coverage-django-pytest-${{ matrix.python-version }}-${{ matrix.django-version }}
 
   fastapi-pytest:
     needs: build
@@ -122,12 +124,11 @@ jobs:
       run: |
         cd test_projects/fast_api_project
         coverage run --data-file=coverage-fastapi-pytest-${{ matrix.python-version }}-${{ matrix.fastapi-version }} -m pytest tests/* -vv
-        ls
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
       with:
         name: report
-        path: coverage-fastapi-pytest-${{ matrix.python-version }}-${{ matrix.fastapi-version }}
+        path: test_projects/fast_api_project/coverage-fastapi-pytest-${{ matrix.python-version }}-${{ matrix.fastapi-version }}
 
   coverage-report:
     needs: [build, django, django-pytest, fastapi-pytest]
