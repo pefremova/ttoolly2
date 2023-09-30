@@ -35,7 +35,7 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
       run: |
-        coverage run --data-file=coverage-main-${{ matrix.python-version }} -p -m pytest tests/* 
+        coverage run --data-file=coverage-main-${{ matrix.python-version }} -m pytest tests/* 
         ls
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
@@ -65,7 +65,7 @@ jobs:
     - name: Run Tests
       run: |
         cd test_projects/django_project
-        coverage run --data-file=coverage-django-${{ matrix.python-version }}-${{ matrix.django-version }} -p -m python manage.py test tests
+        coverage run --data-file=coverage-django-${{ matrix.python-version }}-${{ matrix.django-version }} -m python manage.py test tests
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
       with:
@@ -94,7 +94,7 @@ jobs:
     - name: Run Tests
       run: |
         cd test_projects/django_project
-        coverage run --data-file=coverage-django-pytest-${{ matrix.python-version }}-${{ matrix.django-version }} -p -m pytest tests/**.py
+        coverage run --data-file=coverage-django-pytest-${{ matrix.python-version }}-${{ matrix.django-version }} -m pytest tests/**.py
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
       with:
@@ -124,7 +124,7 @@ jobs:
     - name: Run Tests
       run: |
         cd test_projects/fast_api_project
-        coverage run --data-file=coverage-fastapi-pytest-${{ matrix.python-version }}-${{ matrix.fastapi-version }} -p -m pytest tests/*
+        coverage run --data-file=coverage-fastapi-pytest-${{ matrix.python-version }}-${{ matrix.fastapi-version }} -m pytest tests/*
     - name: Upload coverage result
       uses: actions/upload-artifact@v3
       with:
