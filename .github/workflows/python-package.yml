@@ -85,7 +85,7 @@ jobs:
     - name: Run Tests
       run: |
         cd test_projects/django_project
-        pytest tests/*
+        pytest tests/**.py
 
   fastapi-pytest:
     needs: build
