@@ -38,7 +38,7 @@ def _get_dict_diff(d1, d2, parent_key=""):
         text.append(f"Not in first dict: {list(not_in_first)!r}")
     if not_in_second:
         text.append(f"Not in second dict: {list(not_in_second)!r}")
-    for key in set(d1.keys()).intersection(d2.keys()):
+    for key in sorted(set(d1.keys()).intersection(d2.keys())):
         if d1[key] != d2[key]:
             if isinstance(d1[key], dict) and isinstance(d2[key], dict):
                 res = _get_dict_diff(d1[key], d2[key], parent_key + f"[{key}]")
@@ -71,8 +71,10 @@ def _get_list_diff(l1, l2):
     for i in range(max(len(l1), len(l2))):
         if i >= len(l1):
             errors.append(f"[line {i}]: Not in first list")
+            continue
         if i >= len(l2):
             errors.append(f"[line {i}]: Not in second list")
+            continue
 
         l1_value = l1[i]
         l2_value = l2[i]
@@ -99,9 +101,28 @@ def _get_list_diff(l1, l2):
 
 
 def assert_dict_equal(d1, d2, msg=None):
+    if not isinstance(d1, dict):
+        raise AssertionError("First argument is not a dictionary")
+    if not isinstance(d2, dict):
+        raise AssertionError("Second argument is not a dictionary")
+
     msg = msg + ":\n" if msg else ""
 
     if d1 != d2:
         diff = _get_dict_diff(d1, d2)
+        if diff:
+            raise AssertionError(diff)
+
+
+def assert_list_equal(l1, l2, msg=None):
+    if not isinstance(l1, list):
+        raise AssertionError("First argument is not a list")
+    if not isinstance(l2, list):
+        raise AssertionError("Second argument is not a list")
+
+    msg = msg + ":\n" if msg else ""
+
+    if l1 != l2:
+        diff = _get_list_diff(l1, l2)
         if diff:
             raise AssertionError(diff)

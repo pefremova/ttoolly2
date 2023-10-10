@@ -13,6 +13,7 @@ import sys
 import inspect
 from uuid import uuid4
 from faker import Faker
+import decimal
 
 
 fake = Faker()
@@ -71,7 +72,12 @@ class Field:
     def get_template(cls):
         result = {}
         for k, v in inspect.getmembers(cls):
-            if not (k.startswith("_") or inspect.ismethod(v) or inspect.isfunction(v)):
+            if not (
+                k.startswith("_")
+                or k in ("name",)
+                or inspect.ismethod(v)
+                or inspect.isfunction(v)
+            ):
                 result[{"type_of": "type"}.get(k, k)] = v
         return result
 
@@ -106,7 +112,9 @@ class FieldInt(Field):
     step: int = 1
 
     def get_random_value(self) -> int:
-        return randint(self.min_value, self.max_value)
+        value = randint(self.min_value, self.max_value)
+        value = value - value % self.step
+        return value
 
 
 class FieldSmallInt(FieldInt):
@@ -121,15 +129,18 @@ class FieldDecimal(Field):
     min_value = Decimal(-sys.float_info.max)
     lt: Iterable[str] = []
     lte: Iterable[str] = []
-    step: Decimal = Decimal(1)
-    max_decimal_places: int = 2
+    step: Decimal = Decimal("0.1")
+    max_decimal_places: int = 1
 
     def __init__(self, **kwargs):
         for field in ("max_value", "min_value"):
             if field in kwargs.keys():
                 kwargs[field] = Decimal(kwargs[field])
         super().__init__(**kwargs)
-        self.max_decimal_places = int(math.log(self.step, Decimal("0.1")))
+        if "step" in kwargs.keys() and "max_decimal_places" not in kwargs.keys():
+            self.max_decimal_places = int(math.log(self.step, Decimal("0.1")))
+        elif "max_decimal_places" in kwargs.keys() and "step" not in kwargs.keys():
+            self.step = Decimal("0.1") ** kwargs["max_decimal_places"]
 
     def get_random_value(self) -> Decimal:
         if self.min_value < 0 and self.max_value > 0:
@@ -140,8 +151,22 @@ class FieldDecimal(Field):
                 value = uniform(float(self.min_value), 0)
         else:
             value = uniform(float(self.min_value), float(self.max_value))
-        value = Decimal(round(value, self.max_decimal_places))
+        value = Decimal(value)
+        with decimal.localcontext() as ctx:
+            ctx.prec = 1000
+            value = value - value % self.step
+            value = value.quantize(self.step)
+
         return value
+
+    def validate(self, **kwargs):
+        super().validate(**kwargs)
+        if "step" in kwargs.keys() and "max_decimal_places" in kwargs.keys():
+            expected_step = Decimal("0.1") ** kwargs["max_decimal_places"]
+            if len(str(kwargs["step"]).split(".")[1]) != kwargs["max_decimal_places"]:
+                raise Exception(
+                    f"With max_decimal_places {kwargs['max_decimal_places']} step couldn't be {kwargs['step']}. Maybe {expected_step}?"
+                )
 
 
 class FieldDate(Field):

@@ -8,12 +8,24 @@ from ttoolly.handlers import TestHandler
 @pytest.mark.parametrize(
     "config,expected",
     [
-        (
-            {"f1": {}},
-            set((("f1",),)),
-        ),
+        ({"f1": {}}, set((("f1",),))),
         ({"f1": {"only": {"if": {"f2": None}}}, "f2": {}}, set((("f1",), ("f2",)))),
         ({"f1": {"only": {"if": {"f2": 123}}}, "f2": {}}, set((("f1", "f2"),))),
+        (
+            {
+                "f1": {"only": {"if": {"f2": None}}},
+                "f2": {"only": {"if": {"f1": None, "f3": None}}},
+                "f3": {"only": {"if": {"f2": None}}},
+            },
+            set((("f1", "f3"), ("f2",))),
+        ),
+        (
+            {
+                "f1": {"only": {"if": {"f2": None}}},
+                "f2": {"only": {"if": {"f1": None}}},
+            },
+            set((("f1",), ("f2",))),
+        ),
         # TODO: conflicting ifs
     ],
 )
