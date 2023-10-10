@@ -133,7 +133,7 @@ class FieldDecimal(Field):
     max_decimal_places: int = 1
 
     def __init__(self, **kwargs):
-        for field in ("max_value", "min_value"):
+        for field in ("max_value", "min_value", "step"):
             if field in kwargs.keys():
                 kwargs[field] = Decimal(kwargs[field])
         super().__init__(**kwargs)
@@ -163,7 +163,12 @@ class FieldDecimal(Field):
         super().validate(**kwargs)
         if "step" in kwargs.keys() and "max_decimal_places" in kwargs.keys():
             expected_step = Decimal("0.1") ** kwargs["max_decimal_places"]
-            if len(str(kwargs["step"]).split(".")[1]) != kwargs["max_decimal_places"]:
+
+            if kwargs['step'] == int(kwargs['step']):
+                step_decimal_places = 0
+            else:
+                step_decimal_places = len(str(kwargs["step"]).split(".")[1])
+            if step_decimal_places != kwargs["max_decimal_places"]:
                 raise Exception(
                     f"With max_decimal_places {kwargs['max_decimal_places']} step couldn't be {kwargs['step']}. Maybe {expected_step}?"
                 )

@@ -44,11 +44,11 @@ class TestPytest(Actions, metaclass=TestCaseMeta):
                 "field_decimal": {
                     "lt": [],
                     "lte": [],
-                    "max_decimal_places": 2,
+                    "max_decimal_places": 1,
                     "not_empty": False,
                     "only": None,
                     "required": False,
-                    "step": 1,
+                    "step": '0.1',
                     "type": "decimal",
                     "unique": False,
                 },
