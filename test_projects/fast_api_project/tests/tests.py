@@ -48,7 +48,7 @@ class TestPytest(Actions, metaclass=TestCaseMeta):
                     "not_empty": False,
                     "only": None,
                     "required": False,
-                    "step": '0.1',
+                    "step": "0.1",
                     "type": "decimal",
                     "unique": False,
                 },

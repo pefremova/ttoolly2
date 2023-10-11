@@ -17,6 +17,45 @@ def test_convert_size_to_bytes(text, expected):
     assert utils.convert_size_to_bytes(text) == expected
 
 
+def test_continue_on_fail():
+    errors = ["Existing error"]
+    with utils.continue_on_fail(errors):
+        raise AssertionError("test")
+    assert len(errors) == 2
+    assert """\nAssertionError: test\n""" in errors[1]
+
+
+def test_continue_on_fail_with_title():
+    errors = []
+    with utils.continue_on_fail(errors, "Title text"):
+        raise AssertionError("test")
+    assert len(errors) == 1
+    assert """\nAssertionError: test\n""" in errors[0]
+    assert errors[0].startswith("Title text\n")
+
+
+def test_continue_on_fail_with_custom_exception_type():
+    errors = []
+    with utils.continue_on_fail(errors, exc_types=(ValueError)):
+        raise ValueError("test")
+    assert len(errors) == 1
+    assert """\nValueError: test\n""" in errors[0]
+
+
+def test_continue_on_fail_with_custom_exception_type_other_type():
+    errors = []
+    with pytest.raises(AssertionError):
+        with utils.continue_on_fail(errors, exc_types=(ValueError)):
+            raise AssertionError("test")
+
+
+def test_continue_on_fail_other_type():
+    errors = []
+    with pytest.raises(ValueError):
+        with utils.continue_on_fail(errors):
+            raise ValueError("test")
+
+
 def test_get_randname_short_d():
     value = utils.get_randname(5, "d")
     assert len(value) == 5
@@ -114,7 +153,7 @@ def test_get_random_domain_value(length):
     )
 
 
-@pytest.mark.parametrize("length", [10, 254, 255, 256, 500])
+@pytest.mark.parametrize("length", [3, 10, 254, 255, 256, 500])
 def test_get_random_email_value(length):
     value = utils.get_random_email_value(length)
     """https://www.rfc-editor.org/rfc/rfc3696"""
@@ -123,8 +162,14 @@ def test_get_random_email_value(length):
     assert re.match(
         r"(^([a-zA-Z0-9!#$%&\'*+\-/=?^_`{|}~]|(\\ )|(\\)|(\\\")|(\\\()|(\\\))|(\\,)|(\\:)|(\\;)|(\\<)|(\\>)|(\\@)|(\\\[)|(\\\]))(([a-zA-Z0-9!#$%&\'*+\-/=?^_`{|}~.]|(\\ )|(\\)|(\\\")|(\\\()|(\\\))|(\\,)|(\\:)|(\\;)|(\\<)|(\\>)|(\\@)|(\\\[)|(\\\])){0,63})"
         '|(^"[a-zA-Z0-9!#$%&\'*+\-/=?^_`{|}~.\\(),:;<>@\[\] ]{1,62}"))'
-        r"@(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]",
+        r"@(((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9])|([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?))",
         value,
     )
     assert ".." not in value
     assert ".@" not in value
+
+
+def test_get_random_email_value_too_short():
+    with pytest.raises(ValueError) as exc_info:
+        utils.get_random_email_value(2)
+    assert str(exc_info.value) == "Email length cannot be less than 3"

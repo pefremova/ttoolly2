@@ -16,12 +16,10 @@ def validate(el):
     try:
         name, field_type = el.split(":")
     except ValueError:
-        raise AssertionError(
-            f'Wrong format "{el}". Should be <field name>:<field type>'
-        )
+        raise ValueError(f'Wrong format "{el}". Should be <field name>:<field type>')
     choices = elements_map.keys()
     if field_type not in choices:
-        raise AssertionError(
+        raise ValueError(
             f'Unexpected field type: "{field_type}" (choose from {", ".join(choices)})'
         )
     return name, field_type

@@ -3,13 +3,12 @@ from django.test import TestCase
 from test_app.models import SomeModel
 from ttoolly.adapters.django import Actions as DjangoActions
 from ttoolly.adapters.django_pytest import Actions as PytestActions
-from ttoolly.elements.common import Form
+from ttoolly.elements.django import FormDjango
 from ttoolly.generator import TestCaseMeta
 from ttoolly.loaders import JsonLoader
 from ttoolly.testcases import CasesAdd
 
-
-form_description = Form(**JsonLoader("tests/test_config.json").data)
+form_description = FormDjango(**JsonLoader("tests/test_config.json").data)
 
 
 class TestUnittest(TestCase, DjangoActions, metaclass=TestCaseMeta):

@@ -1,20 +1,22 @@
-from collections.abc import Iterable, Iterator
-from datetime import timedelta, date, datetime, time
-from random import randint, uniform, choice
-from decimal import Decimal
+import decimal
+import inspect
 import math
+import sys
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
+from functools import cached_property
+from random import choice, randint, uniform
+from collections.abc import Iterable, Iterator
+from types import UnionType
+from uuid import uuid4
+
+from faker import Faker
 from ttoolly.utils import (
     convert_size_to_bytes,
-    get_randname,
     get_all_subclasses,
+    get_randname,
     get_random_email_value,
 )
-import sys
-import inspect
-from uuid import uuid4
-from faker import Faker
-import decimal
-
 
 fake = Faker()
 
@@ -34,10 +36,22 @@ class Condition:
             data = [data]
         self.cases = data
 
-    def has_condition(self):
-        if self.filled or self.cases:
-            return True
-        return False
+    @classmethod
+    def validate(self, **kwargs):
+        message = (
+            "Use one of the following formats:"
+            '\n{"if": "field_name"}'
+            '\n{"if": {"field_name": "value"}}'
+            '\n{"if": [{"field_name": "value_1"}, {"other_field_name": "value_2"}]'
+        )
+        if not "if" in kwargs.keys():
+            raise ValueError(message)
+        if not isinstance(kwargs["if"], (str, dict, list)):
+            raise ValueError(message)
+        if isinstance(kwargs["if"], list) and not all(
+            [isinstance(el, dict) for el in kwargs["if"]]
+        ):
+            raise ValueError(message)
 
 
 class Unique:
@@ -51,6 +65,7 @@ class Choices:
 
 
 class Field:
+    _form_type = None
     name: str = None
     type_of: str
     not_empty: bool = False
@@ -81,10 +96,11 @@ class Field:
                 result[{"type_of": "type"}.get(k, k)] = v
         return result
 
-    def validate(self, **kwargs):
+    @classmethod
+    def validate(cls, **kwargs):
         type_of = kwargs.pop("type", None)
         real_attrs = []
-        for k, v in inspect.getmembers(self):
+        for k, v in inspect.getmembers(cls):
             if not (k.startswith("_") or inspect.ismethod(v) or inspect.isfunction(v)):
                 real_attrs.append(k)
 
@@ -95,18 +111,36 @@ class Field:
             res.update(getattr(cls, "__annotations__", {}))
             return res
 
+        annotations = get_annotations(cls)
+
+        def check_by_type(v, tt):
+            if not isinstance(tt, UnionType) and Iterable in tt.mro():
+                isinstance(v, Iterable)
+                if hasattr(tt, "__args__"):
+                    for vv in v:
+                        isinstance(vv, tt.__args__)
+                return True
+
+            if isinstance(v, tt):
+                return True
+            for t in tt.__args__:
+                if hasattr(t, "validate"):
+                    t.validate(**v)
+                    return True
+            raise ValueError(
+                f'Type of attribute "{k}" value ({v}) must be {annotations[k]}'
+            )
+
         for k, v in kwargs.items():
             if k not in real_attrs:
-                raise Exception(
-                    f"Unknown attribute {k} for type {type_of} {self.__class__}"
-                )
-            # TODO: validate type
+                raise AttributeError(f"Unknown attribute {k} for type {type_of} {cls}")
+            check_by_type(v, annotations[k])
 
 
 class FieldInt(Field):
     type_of = "int"
-    max_value = sys.maxsize
-    min_value = -sys.maxsize - 1
+    max_value: int = sys.maxsize
+    min_value: int = -sys.maxsize - 1
     lt: Iterable[str] = []
     lte: Iterable[str] = []
     step: int = 1
@@ -126,7 +160,7 @@ class FieldSmallInt(FieldInt):
 class FieldDecimal(Field):
     type_of = "decimal"
     max_value: Decimal = Decimal(sys.float_info.max)
-    min_value = Decimal(-sys.float_info.max)
+    min_value: Decimal = Decimal(-sys.float_info.max)
     lt: Iterable[str] = []
     lte: Iterable[str] = []
     step: Decimal = Decimal("0.1")
@@ -164,7 +198,7 @@ class FieldDecimal(Field):
         if "step" in kwargs.keys() and "max_decimal_places" in kwargs.keys():
             expected_step = Decimal("0.1") ** kwargs["max_decimal_places"]
 
-            if kwargs['step'] == int(kwargs['step']):
+            if kwargs["step"] == int(kwargs["step"]):
                 step_decimal_places = 0
             else:
                 step_decimal_places = len(str(kwargs["step"]).split(".")[1])
@@ -244,6 +278,8 @@ class FieldStr(Field):
             self.max_length = {"email": 254, "email_simple": 254}.get(
                 self.str_format, None
             )
+        if not isinstance(self.str_format, dict) and not self.min_length:
+            self.min_length = {"email": 3, "email_simple": 3}.get(self.str_format, 0)
 
     def get_random_value(self, length=None):
         length = (
@@ -326,6 +362,8 @@ class FieldBoolean(Field):
 
 
 class Form:
+    _form_type = None
+
     class Meta:
         max_count: int = 1
         min_count: int = 0
@@ -339,12 +377,23 @@ class Form:
         self.Meta.all_fields.update((k,))
         setattr(self, k, v)
 
+    @cached_property
+    def _field_classes_according_to_form_type(self):
+        data = {"group": self.__class__}
+        for el in get_all_subclasses(Field):
+            if data.get(el.type_of):
+                if el._form_type == self._form_type:
+                    data[el.type_of] = el
+            elif el._form_type in (self._form_type, None):
+                data[el.type_of] = el
+        return data
+
     def __init__(self, **kwargs):
         self.Meta.all_fields = set()
         for field_name, data in kwargs.pop("fields").items():
-            field_class = (
-                {"group": Form} | {el.type_of: el for el in get_all_subclasses(Field)}
-            ).get(data["type"], Field)
+            field_class = self._field_classes_according_to_form_type.get(
+                data["type"], Field
+            )
             data["name"] = field_name
             self[field_name] = field_class(**data)
         for k, v in kwargs.items():

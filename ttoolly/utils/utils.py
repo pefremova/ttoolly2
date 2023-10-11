@@ -119,6 +119,13 @@ def get_random_email_value(length, safe=False):
     https://www.ietf.org/rfc/rfc2821.txt
     https://www.ietf.org/rfc/rfc3696.txt
     """
+    if length < 3:  # a@b
+        raise ValueError("Email length cannot be less than 3")
+    if length < 6:  # a@b.cd
+        username = get_randname(1, "wd")
+        domain = get_randname(length - 2, "wd")
+        return f"{username}@{domain}".lower()
+
     MAX_USERNAME_LENGTH = 64
     min_length_without_name = 1 + 1 + 3  # @X.aa
     name_length = random.randint(
