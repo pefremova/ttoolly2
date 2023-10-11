@@ -10,6 +10,10 @@ class FieldStr(FieldStr):
     _form_type = "django"
 
     def __init__(self, **kwargs):
-        if not isinstance(self.str_format, dict) and not self.min_length:
-            self.min_length = {"email": 6, "email_simple": 6}.get(self.str_format, 0)
+        if kwargs.get('str_format'):
+            str_format = kwargs['str_format']
+            if not isinstance(str_format, dict) and not kwargs.get('min_length'):
+                kwargs['min_length'] = {"email": 6, "email_simple": 6}.get(
+                    str_format, 0
+                )
         super().__init__(**kwargs)
