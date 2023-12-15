@@ -26,7 +26,7 @@ from ttoolly.handlers import TestHandler
             },
             set((("f1",), ("f2",))),
         ),
-        # TODO: conflicting ifs
+        # TODO: conflicting ifs ({"f1": {"only": {"if": {"f2": 2}}}, "f2": {}, "f3": {"only": {"if": {"f2": 3}}}}, set((("f1", "f2"), ("f2", "f3"))))
     ],
 )
 def test_get_all_fields_cases(config, expected):

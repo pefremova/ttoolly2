@@ -37,7 +37,7 @@ class Condition:
         self.cases = data
 
     @classmethod
-    def validate(self, **kwargs):
+    def validate(cls, **kwargs):
         message = (
             "Use one of the following formats:"
             '\n{"if": "field_name"}'
@@ -48,16 +48,44 @@ class Condition:
             raise ValueError(message)
         if not isinstance(kwargs["if"], (str, dict, list)):
             raise ValueError(message)
-        if isinstance(kwargs["if"], list) and not all(
-            [isinstance(el, dict) for el in kwargs["if"]]
-        ):
-            raise ValueError(message)
+        if not kwargs["if"]:
+            raise ValueError("Condition can not be empty\n" + message)
+        if isinstance(kwargs["if"], list):
+            if not all([isinstance(el, dict) for el in kwargs["if"]]):
+                raise ValueError(message)
+            if not all(kwargs["if"]):
+                raise ValueError("Condition can not be empty\n" + message)
 
 
 class Unique:
-    value: bool = False
     case_sensitive: bool = True
-    with_fields = []
+    with_fields: Iterable[str] = []
+
+    def __init__(self, data):
+        if isinstance(data, bool):
+            return
+        self.with_fields = data.get('with', [])
+        self.case_sensitive = data.get('case_sensitive', True)
+
+    @classmethod
+    def validate(cls, **kwargs):
+        message = (
+            "Use one of the following formats:"
+            '\n{"with": ["field_name"]}'
+            '\n{"case_sensetive": False}'
+            '\n{"with": ["field_name"], "case_sensetive": False}'
+        )
+        if not set(kwargs.keys()).intersection(("with", "case_sensitive")):
+            raise ValueError(message)
+        if set(kwargs.keys()).difference(("with", "case_sensitive")):
+            raise ValueError(message)
+        if not isinstance(kwargs.get("case_sensitive", False), bool):
+            raise ValueError(message)
+        if with_fields := kwargs.get("with", []):
+            if not isinstance(with_fields, list):
+                raise ValueError(message)
+            if not all([isinstance(el, str) for el in with_fields]):
+                raise ValueError(message)
 
 
 class Choices:
@@ -68,7 +96,7 @@ class Field:
     _form_type = None
     name: str = None
     type_of: str
-    not_empty: bool = False
+    not_empty: Condition | bool = False
     required: Condition | bool = False
     only: Condition | None = None
     unique: Unique | bool = False
@@ -77,9 +105,15 @@ class Field:
         self.validate(**kwargs)
         if required := kwargs.pop("required", None):
             self.required = Condition(required)
+        if not_empty := kwargs.pop("not_empty", None) is None:
+            # TODO: usually different behavior of api and form-based
+            self.not_empty = self.required
+        else:
+            self.not_empty = Condition(not_empty)
         if only := kwargs.pop("only", None):
             self.only = Condition(only)
-
+        if unique := kwargs.pop("unique", None):
+            self.unique = Unique(unique)
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -115,18 +149,22 @@ class Field:
 
         def check_by_type(v, tt):
             if not isinstance(tt, UnionType) and Iterable in tt.mro():
-                isinstance(v, Iterable)
                 if hasattr(tt, "__args__"):
                     for vv in v:
-                        isinstance(vv, tt.__args__)
-                return True
+                        if not isinstance(vv, tt.__args__):
+                            raise ValueError(
+                                f'Type of value "{vv}" must be {tt.__args__}'
+                            )
+                return
 
             if isinstance(v, tt):
-                return True
-            for t in tt.__args__:
+                return
+            for t in getattr(tt, "__args__", ()):
                 if hasattr(t, "validate"):
+                    if not isinstance(v, dict):
+                        raise ValueError(f'Type of value "{v}" must be dict')
                     t.validate(**v)
-                    return True
+                    return
             raise ValueError(
                 f'Type of attribute "{k}" value ({v}) must be {annotations[k]}'
             )
@@ -149,6 +187,23 @@ class FieldInt(Field):
         value = randint(self.min_value, self.max_value)
         value = value - value % self.step
         return value
+
+    @classmethod
+    def validate(cls, **kwargs):
+        super().validate(**kwargs)
+        max_value = kwargs.get('max_value', cls.max_value)
+        min_value = kwargs.get('min_value', cls.min_value)
+        step = kwargs.get('step', cls.step)
+        if max_value < min_value:
+            raise ValueError(
+                f'max_value ({max_value}) can not be less than min_value ({min_value})'
+            )
+        if step < 1:
+            raise ValueError(f'Step must be positive int. Now {step}')
+        if step > (max_value - min_value) > 0:
+            raise ValueError(
+                f'Step ({step}) can not be bigger than difference between min_value ({min_value}) and max_value ({max_value})'
+            )
 
 
 class FieldSmallInt(FieldInt):
@@ -193,7 +248,8 @@ class FieldDecimal(Field):
 
         return value
 
-    def validate(self, **kwargs):
+    @classmethod
+    def validate(cls, **kwargs):
         super().validate(**kwargs)
         if "step" in kwargs.keys() and "max_decimal_places" in kwargs.keys():
             expected_step = Decimal("0.1") ** kwargs["max_decimal_places"]
@@ -206,6 +262,20 @@ class FieldDecimal(Field):
                 raise Exception(
                     f"With max_decimal_places {kwargs['max_decimal_places']} step couldn't be {kwargs['step']}. Maybe {expected_step}?"
                 )
+
+        max_value = kwargs.get('max_value', cls.max_value)
+        min_value = kwargs.get('min_value', cls.min_value)
+        step = kwargs.get('step', cls.step)
+        if max_value < min_value:
+            raise ValueError(
+                f'max_value ({max_value}) can not be less than min_value ({min_value})'
+            )
+        if step < 0:
+            raise ValueError(f'Step must be positive. Now {step}')
+        if step > (max_value - min_value) > 0:
+            raise ValueError(
+                f'Step ({step}) can not be bigger than difference between min_value ({min_value}) and max_value ({max_value})'
+            )
 
 
 class FieldDate(Field):

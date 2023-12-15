@@ -69,7 +69,7 @@ class TestHandler:
 
     def get_required_fields_cases(self) -> Iterator[tuple]:
         """
-        Each element of the list contains all possible fields that can be filled together
+        Each element of the list contains all possible required fields that can be filled together
         """
         all_fields_names = self.form.Meta.all_fields
 

@@ -20,6 +20,80 @@ def test_int_get_random_value(field_kwargs, expected_min, expected_max):
 
 
 @pytest.mark.parametrize(
+    "field_kwargs, expected",
+    [
+        (
+            {
+                "not_empty": True,
+                "required": False,
+                "max_value": 123,
+                "min_value": -123,
+                "only": {"if": "field2"},
+                "unique": True,
+                "lt": "field2",
+                "lte": "field3",
+                "step": 1,
+            },
+            {},
+        ),
+        ({"not_empty": False}, {}),
+        ({"required": True}, {}),
+        ({"required": {"if": "field"}}, {}),
+        ({"required": {"if": {"field2": 3, "field3": 4}}}, {}),
+        ({"required": {"if": {"field2": {}}}}, {}),
+        ({"required": {"if": {"field2": []}}}, {}),
+        ({"required": {"if": {"field2": None}}}, {}),
+        ({"required": {"if": {"field2": "value"}}}, {}),
+        ({"required": {"if": [{"field2": 3}, {"field3": 4}]}}, {}),
+        ({"only": {"if": {"field2": {}}}}, {}),
+        ({"only": {"if": {"field2": []}}}, {}),
+        ({"only": {"if": {"field2": None}}}, {}),
+        ({"only": {"if": {"field2": 3, "field3": "value"}}}, {}),
+        ({"only": {"if": [{"field2": 3}, {"field3": 4}]}}, {}),
+        ({"unique": False}, {}),
+        ({"unique": {"with": ["field2", "field3"]}}, {}),
+        ({"unique": {"case_sensitive": False}}, {}),
+        ({"unique": {"case_sensitive": True}}, {}),
+        ({"unique": {"with": ["field2", "field3"], "case_sensitive": False}}, {}),
+        ({"lt": ["field1"]}, {}),
+        ({"lte": ["field1", "field2"]}, {}),
+    ],
+)
+def test_int_check_format(field_kwargs, expected):
+    assert common.FieldInt(**field_kwargs)
+
+
+@pytest.mark.parametrize(
+    "field_kwargs, exc",
+    [
+        ({"not_empty": "q"}, ValueError),
+        ({"required": "q"}, ValueError),
+        ({"required": {}}, ValueError),
+        ({"required": {"if": 1}}, ValueError),
+        ({"required": {"if": {}}}, ValueError),
+        ({"required": {"if": []}}, ValueError),
+        ({"required": {"if": [1]}}, ValueError),
+        ({"required": {"if": ["value"]}}, ValueError),
+        ({"required": {"if": [{}]}}, ValueError),
+        ({"max_value": "qwe"}, ValueError),
+        ({"max_value": 1.45}, ValueError),
+        ({"min_value": "qwe"}, ValueError),
+        ({"min_value": 1.45}, ValueError),
+        ({"max_value": 1, "min_value": 2}, ValueError),
+        ({"only": {"if": {}}}, ValueError),
+        ({"only": {"if": []}}, ValueError),
+        ({"only": {"if": [{}]}}, ValueError),
+        ({"step": 1.4}, ValueError),
+        ({"step": -2}, ValueError),
+        ({"step": 4, 'min_value': 1, 'max_value': 4}, ValueError),
+    ],
+)
+def test_int_check_format_with_error(field_kwargs, exc):
+    with pytest.raises(exc):
+        common.FieldInt(**field_kwargs)
+
+
+@pytest.mark.parametrize(
     "field_kwargs, max_decimal_places, step, expected_min, expected_max",
     [
         (
