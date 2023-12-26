@@ -7,7 +7,7 @@ from ttoolly.elements import elements_map
 def add_arguments(parser):
     parser.add_argument(
         "types",
-        help="Types of fields (example: field1:str field_int:int field_choice:choice)",
+        help="Types of fields (example: field1:str field_int:int field_select:select)",
         nargs="+",
     )
 

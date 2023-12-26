@@ -2,21 +2,18 @@ import decimal
 import inspect
 import math
 import sys
+from collections.abc import Iterable, Iterator
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from functools import cached_property
 from random import choice, randint, uniform
-from collections.abc import Iterable, Iterator
 from types import UnionType
 from uuid import uuid4
 
+import rstr
 from faker import Faker
-from ttoolly.utils import (
-    convert_size_to_bytes,
-    get_all_subclasses,
-    get_randname,
-    get_random_email_value,
-)
+from ttoolly.utils import convert_size_to_bytes, get_all_subclasses, randomizer
+import re
 
 fake = Faker()
 
@@ -44,7 +41,7 @@ class Condition:
             '\n{"if": {"field_name": "value"}}'
             '\n{"if": [{"field_name": "value_1"}, {"other_field_name": "value_2"}]'
         )
-        if not "if" in kwargs.keys():
+        if ["if"] != list(kwargs.keys()):
             raise ValueError(message)
         if not isinstance(kwargs["if"], (str, dict, list)):
             raise ValueError(message)
@@ -105,11 +102,13 @@ class Field:
         self.validate(**kwargs)
         if required := kwargs.pop("required", None):
             self.required = Condition(required)
-        if not_empty := kwargs.pop("not_empty", None) is None:
+        if (not_empty := kwargs.pop("not_empty", None)) is None:
             # TODO: usually different behavior of api and form-based
             self.not_empty = self.required
-        else:
+        elif not_empty:
             self.not_empty = Condition(not_empty)
+        else:
+            self.not_empty = False
         if only := kwargs.pop("only", None):
             self.only = Condition(only)
         if unique := kwargs.pop("unique", None):
@@ -196,14 +195,15 @@ class FieldInt(Field):
         step = kwargs.get('step', cls.step)
         if max_value < min_value:
             raise ValueError(
-                f'max_value ({max_value}) can not be less than min_value ({min_value})'
+                f'Max_value ({max_value}) can not be less than min_value ({min_value})'
             )
         if step < 1:
             raise ValueError(f'Step must be positive int. Now {step}')
-        if step > (max_value - min_value) > 0:
-            raise ValueError(
-                f'Step ({step}) can not be bigger than difference between min_value ({min_value}) and max_value ({max_value})'
-            )
+        if (max_value - min_value) > 0:
+            if (max_value - min_value) % step > 0:
+                raise ValueError(
+                    f'Difference between min_value ({min_value}) and max_value ({max_value}) must be divided by step ({step}) without reminder'
+                )
 
 
 class FieldSmallInt(FieldInt):
@@ -227,7 +227,20 @@ class FieldDecimal(Field):
                 kwargs[field] = Decimal(kwargs[field])
         super().__init__(**kwargs)
         if "step" in kwargs.keys() and "max_decimal_places" not in kwargs.keys():
-            self.max_decimal_places = int(math.log(self.step, Decimal("0.1")))
+            self.max_decimal_places = max(
+                [
+                    len(
+                        str(
+                            kwargs[field_name] % int(kwargs[field_name])
+                            if abs(kwargs[field_name]) > 1
+                            else kwargs[field_name]
+                        ).split(".")[1]
+                    )
+                    if int(kwargs[field_name]) != kwargs[field_name]
+                    else 0
+                    for field_name in ("max_value", "min_value", "step")
+                ]
+            )
         elif "max_decimal_places" in kwargs.keys() and "step" not in kwargs.keys():
             self.step = Decimal("0.1") ** kwargs["max_decimal_places"]
 
@@ -251,31 +264,43 @@ class FieldDecimal(Field):
     @classmethod
     def validate(cls, **kwargs):
         super().validate(**kwargs)
-        if "step" in kwargs.keys() and "max_decimal_places" in kwargs.keys():
-            expected_step = Decimal("0.1") ** kwargs["max_decimal_places"]
 
-            if kwargs["step"] == int(kwargs["step"]):
-                step_decimal_places = 0
-            else:
-                step_decimal_places = len(str(kwargs["step"]).split(".")[1])
-            if step_decimal_places != kwargs["max_decimal_places"]:
-                raise Exception(
-                    f"With max_decimal_places {kwargs['max_decimal_places']} step couldn't be {kwargs['step']}. Maybe {expected_step}?"
-                )
+        if "max_decimal_places" in kwargs.keys():
+            expected_step = Decimal("0.1") ** kwargs["max_decimal_places"]
+            for field_name in ("max_value", "min_value", "step"):
+                if field_name in kwargs.keys():
+                    value_decimal_places = (
+                        len(
+                            str(
+                                kwargs[field_name] % int(kwargs[field_name])
+                                if abs(kwargs[field_name]) > 1
+                                else kwargs[field_name]
+                            ).split(".")[1]
+                        )
+                        if int(kwargs[field_name]) != kwargs[field_name]
+                        else 0
+                    )
+                    if value_decimal_places > kwargs["max_decimal_places"]:
+                        raise ValueError(
+                            f"With max_decimal_places {kwargs['max_decimal_places']} {field_name} couldn't be {kwargs[field_name]}. Maybe {expected_step}?"
+                        )
 
         max_value = kwargs.get('max_value', cls.max_value)
         min_value = kwargs.get('min_value', cls.min_value)
         step = kwargs.get('step', cls.step)
         if max_value < min_value:
             raise ValueError(
-                f'max_value ({max_value}) can not be less than min_value ({min_value})'
+                f'Max_value ({max_value}) can not be less than min_value ({min_value})'
             )
         if step < 0:
             raise ValueError(f'Step must be positive. Now {step}')
-        if step > (max_value - min_value) > 0:
-            raise ValueError(
-                f'Step ({step}) can not be bigger than difference between min_value ({min_value}) and max_value ({max_value})'
-            )
+        if (max_value - min_value) > 0:
+            with decimal.localcontext() as ctx:
+                ctx.prec = 1000
+                if (max_value - min_value) % step > 0:
+                    raise ValueError(
+                        f'Difference between min_value ({min_value}) and max_value ({max_value}) must be divided by step ({step}) without reminder'
+                    )
 
 
 class FieldDate(Field):
@@ -299,6 +324,25 @@ class FieldDate(Field):
             )
         return fake.date_this_month()
 
+    @classmethod
+    def validate(cls, **kwargs):
+        super().validate(**kwargs)
+        max_value = kwargs.get('max_value')
+        min_value = kwargs.get('min_value')
+        step = kwargs.get('step', cls.step)
+        if step < timedelta(days=1):
+            raise ValueError(f'Step must be great than or equal 1 day. Now {step}')
+        if max_value and min_value:
+            if max_value < min_value:
+                raise ValueError(
+                    f'Max_value ({max_value}) can not be less than min_value ({min_value})'
+                )
+            if (max_value - min_value) >= timedelta(days=1):
+                if (max_value - min_value) % step > timedelta():
+                    raise ValueError(
+                        f'Difference between min_value ({min_value}) and max_value ({max_value}) must be divided by step ({step}) without reminder'
+                    )
+
 
 class FieldDateTime(Field):
     type_of = "datetime"
@@ -310,29 +354,70 @@ class FieldDateTime(Field):
 
     def get_random_value(self):
         if self.max_value and self.min_value:
-            return fake.date_time_between_dates(self.min_value, self.max_value)
+            return randomizer.get_random_datetime_value(self.min_value, self.max_value)
         if self.max_value:
-            return fake.date_time_between_dates(
+            return randomizer.get_random_datetime_value(
                 self.max_value - timedelta(days=30), self.max_value
             )
         if self.min_value:
-            return fake.date_time_between_dates(
+            return randomizer.get_random_datetime_value(
                 self.min_value, self.min_value + timedelta(days=30)
             )
-        return fake.date_time_this_month()
+        return randomizer.get_random_datetime_value()
+
+    @classmethod
+    def validate(cls, **kwargs):
+        super().validate(**kwargs)
+        max_value = kwargs.get('max_value')
+        min_value = kwargs.get('min_value')
+        step = kwargs.get('step', cls.step)
+        if max_value and min_value:
+            if max_value < min_value:
+                raise ValueError(
+                    f'Max_value ({max_value}) can not be less than min_value ({min_value})'
+                )
+            if (max_value - min_value) > timedelta():
+                if (max_value - min_value) % step > timedelta():
+                    raise ValueError(
+                        f'Difference between min_value ({min_value}) and max_value ({max_value}) must be divided by step ({step}) without reminder'
+                    )
 
 
 class FieldTime(Field):
     type_of = "time"
-    max_value: time | None = None
-    min_value: time | None = None
+    max_value: time = time.max
+    min_value: time = time.min
     lt: Iterable[str] = []
     lte: Iterable[str] = []
-    step: timedelta = timedelta(seconds=1)
+    step: timedelta = timedelta(microseconds=1)
 
     def get_random_value(self):
-        # TODO
-        return fake.time_object()
+        return randomizer.get_random_datetime_value(
+            datetime.combine(date.today(), self.min_value),
+            datetime.combine(date.today(), self.max_value),
+        ).time()
+
+    @classmethod
+    def validate(cls, **kwargs):
+        super().validate(**kwargs)
+        max_value = kwargs.get('max_value', cls.max_value)
+        min_value = kwargs.get('min_value', cls.min_value)
+        step = kwargs.get('step', cls.step)
+        if step >= timedelta(days=1):
+            raise ValueError(f'Step ({step}) must be less than 1 day')
+        if max_value < min_value:
+            raise ValueError(
+                f'Max_value ({max_value}) can not be less than min_value ({min_value})'
+            )
+        today = date.today()
+        if (
+            difference := datetime.combine(today, max_value)
+            - datetime.combine(today, min_value)
+        ) > timedelta():
+            if difference % step > timedelta():
+                raise ValueError(
+                    f'Difference between min_value ({min_value}) and max_value ({max_value}) must be divided by step ({step}) without reminder'
+                )
 
 
 class FieldStr(Field):
@@ -341,6 +426,7 @@ class FieldStr(Field):
     min_length: int = 0
     str_format: dict | str | None = None
     null_allowed: bool = True
+    __available_str_formats = ("email", "email_simple")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -357,20 +443,48 @@ class FieldStr(Field):
             if length is not None
             else randint(self.min_length or 1, self.max_length or 100000)
         )
-
         if isinstance(self.str_format, dict):
-            raise Exception("TODO")
+            return rstr.xeger(self.str_format["re"])
         elif self.str_format:
             fun = {
-                "email": get_random_email_value,
-                "email_simple": get_random_email_value,
+                "email": randomizer.get_random_email_value,
+                "email_simple": randomizer.get_random_email_value,
             }[self.str_format]
             kwargs = {}
             if self.str_format == "email_simple":
                 kwargs = {"safe": True}
             return fun(length, **kwargs)
+        return randomizer.get_randname(length, "w")
 
-        return get_randname(length, "w")
+    @classmethod
+    def validate(cls, **kwargs):
+        super().validate(**kwargs)
+        if kwargs.get("min_length") and kwargs["min_length"] < 0:
+            raise ValueError(
+                f"Min_length ({kwargs['min_length']}) can not be less than 0"
+            )
+        if kwargs.get("max_length") and kwargs["max_length"] < kwargs.get(
+            "min_length", cls.min_length
+        ):
+            raise ValueError(
+                f"Max_length ({kwargs['max_length']}) can not be less than min_length ({kwargs.get('min_length', cls.min_length)})"
+            )
+        if (str_format := kwargs.get("str_format")) is not None:
+            if (
+                isinstance(str_format, str)
+                and str_format not in cls.__available_str_formats
+            ):
+                raise ValueError(
+                    f"Available values for str_format ({str_format}): {', '.join(cls.__available_str_formats)}"
+                )
+            elif isinstance(str_format, dict):
+                if not list(str_format.keys()) == ["re"]:
+                    raise ValueError(
+                        f"Available format for str_format ({str_format}): {{\"re\": <regex>}}"
+                    )
+                if not str_format["re"]:
+                    raise ValueError(f"Regexp in str_format can not be empty")
+                re.compile(str_format["re"])
 
 
 class FieldUuid(Field):
@@ -381,16 +495,16 @@ class FieldUuid(Field):
         return uuid4()
 
 
-class FieldChoice(Field):
-    type_of = "choice"
-    choice_values: Iterable = []
+class FieldSelect(Field):
+    type_of = "select"
+    choice_values: Iterable = []  # TODO
 
     def get_random_value(self, *a, **k):
         # TODO
         return choice(self.choice_values)
 
 
-class FieldMultiselect(FieldChoice):
+class FieldMultiselect(FieldSelect):
     type_of = "multiselect"
 
     def get_random_value(self, *a, **k):
@@ -409,10 +523,37 @@ class FieldFile(Field):
     extensions: Iterable[str] = ()
 
     def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         for field in ("max_size", "sum_max_size"):
             if field in kwargs.keys():
                 kwargs[field] = convert_size_to_bytes(kwargs[field])
-        super().__init__(**kwargs)
+
+    @classmethod
+    def validate(cls, **kwargs):
+        super().validate(**kwargs)
+        if "min_length" in kwargs.keys() and kwargs["min_length"] < 0:
+            raise ValueError(
+                f"Min_length ({kwargs['min_length']}) can not be less than 0"
+            )
+        if "max_length" in kwargs.keys() and kwargs["max_length"] < kwargs.get(
+            "min_length", cls.min_length
+        ):
+            raise ValueError(
+                f"Max_length ({kwargs['max_length']}) can not be less than min_length ({kwargs.get('min_length', cls.min_length)})"
+            )
+        for field_name in ("max_count", "max_size", "sum_max_size"):
+            if field_name in kwargs.keys() and kwargs[field_name] < 1:
+                raise ValueError(
+                    f"{field_name} ({kwargs[field_name]}) can not be less than 1"
+                )
+        if (
+            kwargs.get('max_size')
+            and kwargs.get('sum_max_size')
+            and kwargs['max_size'] > kwargs['sum_max_size']
+        ):
+            raise ValueError(
+                f"Max_size ({kwargs['max_size']}) must be less or equal sum_max_size ({kwargs['sum_max_size']})"
+            )
 
 
 class FieldImage(FieldFile):
@@ -421,6 +562,36 @@ class FieldImage(FieldFile):
     min_height: int = 1
     max_width: int = 10000
     max_height: int = 10000
+    __available_extensions = ('bmp', 'gif', 'jpg', 'jpeg', 'png', 'svg', 'tiff', 'webp')
+
+    @classmethod
+    def validate(cls, **kwargs):
+        if 'extensions' in kwargs.keys():
+            kwargs["extensions"] = tuple(
+                set([el.lower() for el in kwargs.get("extensions", [])])
+            )
+        super().validate(**kwargs)
+        for field_name in ("min_width", "min_height", "max_width", "max_height"):
+            if kwargs.get(field_name, 1) < 1:
+                raise ValueError(
+                    f'{field_name} ({kwargs[field_name]}) can not be less than 1'
+                )
+        min_width = kwargs.get("min_width", cls.min_width)
+        min_height = kwargs.get("min_height", cls.min_height)
+        max_width = kwargs.get("max_width", cls.max_width)
+        max_height = kwargs.get("max_height", cls.max_height)
+        if min_height > max_height:
+            raise ValueError(
+                f"Min_height ({min_height}) can not be larger than max_height ({max_height})"
+            )
+        if min_width > max_width:
+            raise ValueError(
+                f"Min_width ({min_width}) can not be larger than max_width ({max_width})"
+            )
+        if diff := set(kwargs.get("extensions", ())).difference(
+            cls.__available_extensions
+        ):
+            raise ValueError(f"There are not image extensions: {', '.join(diff)}")
 
 
 class FieldBoolean(Field):
@@ -469,11 +640,14 @@ class Form:
         for k, v in kwargs.items():
             setattr(self.Meta, k, v)
 
+    def get_all_fields(self) -> Iterator[str]:
+        return self.Meta.all_fields
+
     def get_one_of_fields(self):
         """
         Groups of fields which cannot be filled together
         """
-        all_fields_names = self.Meta.all_fields
+        all_fields_names = self.get_all_fields()
         result = {}
         for name in all_fields_names:
             field = self[name]
@@ -491,7 +665,7 @@ class Form:
 
     def get_required_fields(self) -> Iterator[str]:
         # FIXME: for related fields
-        all_fields_names = self.Meta.all_fields
+        all_fields_names = self.get_all_fields()
         result = []
         for name in all_fields_names:
             if self[name].required:
@@ -506,3 +680,6 @@ class Form:
         data = {f: self[f].get_random_value() for f in fields}
         data.update(additional or {})
         return data
+
+    def set_empty_value(self, params: dict, field: str) -> None:
+        params[field] = ''

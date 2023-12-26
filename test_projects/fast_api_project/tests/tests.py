@@ -24,7 +24,7 @@ class TestPytest(Actions, metaclass=TestCaseMeta):
                 "field_date": {
                     "lt": [],
                     "lte": [],
-                    "not_empty": False,
+                    "not_empty": True,
                     "only": None,
                     "required": False,
                     "step": datetime.timedelta(days=1),
@@ -34,7 +34,7 @@ class TestPytest(Actions, metaclass=TestCaseMeta):
                 "field_datetime": {
                     "lt": [],
                     "lte": [],
-                    "not_empty": False,
+                    "not_empty": True,
                     "only": None,
                     "required": True,
                     "step": datetime.timedelta(seconds=1),
@@ -45,7 +45,7 @@ class TestPytest(Actions, metaclass=TestCaseMeta):
                     "lt": [],
                     "lte": [],
                     "max_decimal_places": 1,
-                    "not_empty": False,
+                    "not_empty": True,
                     "only": None,
                     "required": False,
                     "step": "0.1",
@@ -55,7 +55,7 @@ class TestPytest(Actions, metaclass=TestCaseMeta):
                 "field_integer": {
                     "lt": [],
                     "lte": [],
-                    "not_empty": False,
+                    "not_empty": True,
                     "only": None,
                     "required": False,
                     "step": 1,

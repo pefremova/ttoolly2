@@ -15,5 +15,5 @@ setup(
             "tt_generate_cases = ttoolly.commands.generate_cases:main",
         ],
     },
-    install_requires=["Faker>=19.6.1"],
+    install_requires=["Faker>=19.6.1", "rstr>=3.2.2"],
 )

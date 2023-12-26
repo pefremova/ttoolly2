@@ -1,6 +1,6 @@
 from faker import Faker
-from ttoolly.elements.common import FieldStr, Field, FieldChoice
-from ttoolly.utils.utils import get_randname
+from ttoolly.elements.common import FieldStr, Field, FieldSelect
+from ttoolly.utils.randomizer import get_randname
 import json
 
 
@@ -28,7 +28,7 @@ class FieldJSON(Field):
         return json.dumps({get_randname(10, "wd"): get_randname(10, "wd")})
 
 
-class FieldChoice(FieldChoice):
+class FieldSelect(FieldSelect):
     type_of = "choice_fk"
 
     def get_random_value(self, *a, **k):
