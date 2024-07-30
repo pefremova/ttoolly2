@@ -16,4 +16,5 @@ setup(
         ],
     },
     install_requires=["Faker>=19.6.1", "rstr>=3.2.2"],
+    extras_require={"images": ["Pillow>=10.4"]},
 )

@@ -2,7 +2,11 @@ import string
 import random
 import re
 from datetime import datetime, time, timedelta
+from time import mktime
 from dateutil import relativedelta
+from ttoolly.utils.utils import convert_size_to_bytes
+import os
+import io
 
 
 def get_randname(l: int = 10, _type: str = "a", length_of_chunk: int = 10) -> str:
@@ -125,3 +129,164 @@ def get_random_email_value(length, safe=False):
         username += get_randname(1, "wd")
     domain = get_random_domain_value(domain_length)
     return f"{username}@{domain}".lower()
+
+
+def get_random_image(
+    path: str = '',
+    filename: str = '',
+    size: int | str | None = None,
+    width: int | None = None,
+    height: int | None = None,
+):
+    """
+    generate image file with size
+    """
+    width = width or random.randint(1, 1000)
+    height = height or random.randint(1, 1000)
+
+    filename = filename or get_randname(10, 'wrd ').strip()
+    if os.path.splitext(filename)[1] in ('.bmp',):
+        content = get_random_bmp_content(convert_size_to_bytes(size or 10))
+    else:
+        if size is not None:
+            size = convert_size_to_bytes(size)
+            _size = max(1, size - 800)
+            width = min(_size, width)
+            height = min(int(_size / width), height)
+        else:
+            size = 10
+        content = {
+            '.gif': get_random_gif_content,
+            '.svg': get_random_svg_content,
+            '.png': get_random_png_content,
+        }.get(os.path.splitext(filename)[1].lower(), get_random_jpg_content)(
+            size, width, height
+        )
+    if path:
+        if os.path.exists(os.path.join(path, filename)):
+            os.remove(os.path.join(path, filename))
+        with open(os.path.join(path, filename), 'ab') as f:
+            f.write(content)
+    else:
+        f = io.BytesIO()
+        f.write(content)
+    return f
+
+
+def get_random_img_content(_format, size=10, width=1, height=1):
+    try:
+        from PIL import Image, ImageDraw
+    except ImportError:
+        raise ImportError("Pillow required. Install ttoolly as ttoolly[images]")
+    size = convert_size_to_bytes(size)
+    image = Image.new('RGB', (width, height), "#%06x" % random.randint(0, 0xFFFFFF))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle(
+        (0, 0, width - 1, height - 1),
+        fill=None,
+        outline="#%06x" % random.randint(0, 0xFFFFFF),
+        width=3,
+    )
+    circle_r = int(min(width, height) / 2 - 1)
+    draw.circle(
+        (width / 2, height / 2),
+        radius=circle_r,
+        fill="#%06x" % random.randint(0, 0xFFFFFF),
+        outline="#%06x" % random.randint(0, 0xFFFFFF),
+        width=3,
+    )
+
+    output = io.BytesIO()
+    image.save(output, format=_format)
+    content = output.getvalue()
+    size -= len(content)
+    if size > 0:
+        content += bytearray(size)
+    del draw
+    return content
+
+
+def get_random_bmp_content(size=10, width=1, height=1):
+    return get_random_img_content('BMP', size, width, height)
+
+
+def get_random_gif_content(size=10, width=1, height=1):
+    return get_random_img_content('GIF', size, width, height)
+
+
+def get_random_jpg_content(size=10, width=1, height=1):
+    return get_random_img_content('JPEG', size, width, height)
+
+
+def get_random_pdf_content(
+    size=10,
+):
+    content = """%PDF-1.5
+%\B5\ED\AE\FB
+6 0 obj
+<< /Type /Page
+>>
+endobj
+{}
+1 0 obj
+<< /Type /Pages
+   /Kids [ 6 0 R ]
+   /Count 1
+>>
+endobj
+13 0 obj
+<< /Type /Catalog
+   /Pages 1 0 R
+>>
+endobj
+trailer
+<< /Root 13 0 R
+>>
+%%EOF"""
+    size = convert_size_to_bytes(size)
+    size -= len(content.format(''))
+    additional_content = ''
+    if size > 0:
+        additional_content = bytearray(size).decode()
+    return content.format(additional_content)
+
+
+def get_random_png_content(size=10, width=1, height=1):
+    return get_random_img_content('PNG', size, width, height)
+
+
+def get_random_svg_content(size=10, width=1, height=1):
+    """
+    generates svg content
+    """
+    from xml.etree import ElementTree as et
+
+    size = convert_size_to_bytes(size)
+    doc = et.Element(
+        'svg',
+        width=force_text(width),
+        height=force_text(height),
+        version='1.1',
+        xmlns='http://www.w3.org/2000/svg',
+    )
+    et.SubElement(
+        doc,
+        'rect',
+        width=force_text(width),
+        height=force_text(height),
+        fill='rgb(%s, %s, %s)'
+        % (random.randint(1, 255), random.randint(1, 255), random.randint(1, 255)),
+    )
+    output = StringIO()
+    header = (
+        '<?xml version=\"1.0\" standalone=\"no\"?>\n'
+        '<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">\n'
+    )
+    output.write(header)
+    output.write(et.tostring(doc).decode())
+    content = output.getvalue()
+    size -= len(content)
+    if size > 0:
+        content += '<!-- %s -->' % ('a' * (size - 9))
+    output.close()
+    return content.encode()
