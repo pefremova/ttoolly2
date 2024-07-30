@@ -47,7 +47,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-        django-version: ["3.2", "4.2", "5.0"]
+        django-version: ["4.2", "5.0"]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -76,7 +76,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-        django-version: ["3.2", "4.2", "5.0"]
+        django-version: ["4.2", "5.0"]
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
