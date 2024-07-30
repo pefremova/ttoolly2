@@ -138,3 +138,77 @@ class TestHandler:
             result[tuple(main_required_fields)] = {}
 
         return result
+
+    def get_not_empty_fields_cases(self) -> Iterator[tuple]:
+        """
+        Each element of the list contains all possible not empty fields that can be filled together
+        """
+        all_fields_names = self.form.Meta.all_fields
+
+        main_not_empty_fields = []
+        not_empty_with_case = []
+        other_not_empty_fields = []
+
+        for name in all_fields_names:
+            if not_empty := self.form[name].not_empty:
+                if not_empty.cases:
+                    not_empty_with_case.append(name)
+                elif not_empty.filled:
+                    other_not_empty_fields.append(name)
+                else:
+                    main_not_empty_fields.append(name)
+        all_not_empty_fields = (
+            main_not_empty_fields + other_not_empty_fields + not_empty_with_case
+        )
+        result = {}
+        for name in other_not_empty_fields:
+            not_empty = self.form[name].not_empty
+            result[
+                tuple(
+                    sorted(
+                        set(all_not_empty_fields).difference([name, not_empty.filled])
+                    )
+                )
+            ] = {}
+
+        for name in not_empty_with_case:
+            for not_empty_case in self.form[name].not_empty.cases:
+                new_fields_list = set(all_not_empty_fields).difference(
+                    [k for k, v in not_empty_case.items() if not v]
+                )
+                if set(all_not_empty_fields).difference(new_fields_list):
+                    result[tuple(sorted(new_fields_list))] = {}
+
+                if additional_data := {k: v for k, v in not_empty_case.items() if v}:
+                    result[
+                        tuple(
+                            sorted(
+                                main_not_empty_fields
+                                + [
+                                    name,
+                                ]
+                            )
+                        )
+                    ] = additional_data
+
+                    non_not_empty_in_additional = tuple(
+                        set(additional_data.keys()).difference(main_not_empty_fields)
+                    )
+                    result[
+                        tuple(
+                            sorted(
+                                set(main_not_empty_fields).difference(
+                                    (name,) + non_not_empty_in_additional
+                                )
+                            )
+                        )
+                    ] = {
+                        k: v
+                        for k, v in additional_data.items()
+                        if k not in non_not_empty_in_additional
+                    }
+
+        if not result:
+            result[tuple(main_not_empty_fields)] = {}
+
+        return result

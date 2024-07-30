@@ -1074,7 +1074,9 @@ def test_file_check_format(field_kwargs, expected):
     "field_kwargs, exc",
     [
         ({"max_length": "qwe"}, ValueError),
+        ({"max_length": -1}, ValueError),
         ({"min_length": "qwe"}, ValueError),
+        ({"min_length": -1}, ValueError),
         ({"min_length": 100, "max_length": 99}, ValueError),
         ({"null_allowed": "qwe"}, ValueError),
         ({"max_count": 0}, ValueError),
@@ -1162,7 +1164,9 @@ def test_image_check_format(field_kwargs, expected):
     "field_kwargs, exc",
     [
         ({"max_length": "qwe"}, ValueError),
+        ({"max_length": -1}, ValueError),
         ({"min_length": "qwe"}, ValueError),
+        ({"min_length": -1}, ValueError),
         ({"min_length": 100, "max_length": 99}, ValueError),
         ({"null_allowed": "qwe"}, ValueError),
         ({"max_count": 0}, ValueError),

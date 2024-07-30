@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
-from datetime import date, datetime
+from pydantic import BaseModel, Field, HttpUrl
+from datetime import date, datetime, timedelta
 from decimal import Decimal
+from uuid import UUID
 
 
 class OtherModelBase(BaseModel):

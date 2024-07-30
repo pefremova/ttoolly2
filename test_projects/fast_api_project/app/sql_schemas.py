@@ -1,12 +1,15 @@
 from sqlalchemy import (
     Boolean,
     Column,
+    ForeignKey,
     Integer,
     String,
+    # Binary,
     Date,
     DateTime,
     Numeric,
 )
+from sqlalchemy.orm import relationship
 
 from .database import Base
 

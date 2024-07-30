@@ -564,6 +564,16 @@ class FieldImage(FieldFile):
     max_height: int = 10000
     __available_extensions = ('bmp', 'gif', 'jpg', 'jpeg', 'png', 'svg', 'tiff', 'webp')
 
+    def get_random_value(self):
+        width = width or random.randint(
+            kwargs.get('min_width', 1),
+            kwargs.get('max_width', kwargs.get('min_width', 0) + 100),
+        )
+        height = height or random.randint(
+            kwargs.get('min_height', 1),
+            kwargs.get('max_height', kwargs.get('min_height', 0) + 100),
+        )
+
     @classmethod
     def validate(cls, **kwargs):
         if 'extensions' in kwargs.keys():
