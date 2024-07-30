@@ -1,12 +1,14 @@
-import string
+from datetime import datetime, time, timedelta
+import io
+import os
 import random
 import re
-from datetime import datetime, time, timedelta
-from time import mktime
+import string
+from typing import Literal
+from xml.etree import ElementTree
+
 from dateutil import relativedelta
 from ttoolly.utils.utils import convert_size_to_bytes
-import os
-import io
 
 
 def get_randname(l: int = 10, _type: str = "a", length_of_chunk: int = 10) -> str:
@@ -37,6 +39,13 @@ def get_randname(l: int = 10, _type: str = "a", length_of_chunk: int = 10) -> st
         [random.choice(text) for _ in range(l % length_of_chunk)]
     )
     return n
+
+
+def get_random_color(type_: Literal['rgb', 'hex'] = 'rgb') -> str:
+    if type_ == 'rgb':
+        return f'rgb({random.randint(1, 255)}, {random.randint(1, 255)}, {random.randint(1, 255)})'
+    if type_ == 'hex':
+        return '#%06x' % random.randint(0, 0xFFFFFF)
 
 
 def get_random_datetime_value(
@@ -179,20 +188,20 @@ def get_random_img_content(_format, size=10, width=1, height=1):
     except ImportError:
         raise ImportError("Pillow required. Install ttoolly as ttoolly[images]")
     size = convert_size_to_bytes(size)
-    image = Image.new('RGB', (width, height), "#%06x" % random.randint(0, 0xFFFFFF))
+    image = Image.new('RGB', (width, height), get_random_color('hex'))
     draw = ImageDraw.Draw(image)
     draw.rectangle(
         (0, 0, width - 1, height - 1),
         fill=None,
-        outline="#%06x" % random.randint(0, 0xFFFFFF),
+        outline=get_random_color('hex'),
         width=3,
     )
     circle_r = int(min(width, height) / 2 - 1)
     draw.circle(
         (width / 2, height / 2),
         radius=circle_r,
-        fill="#%06x" % random.randint(0, 0xFFFFFF),
-        outline="#%06x" % random.randint(0, 0xFFFFFF),
+        fill=get_random_color('hex'),
+        outline=get_random_color('hex'),
         width=3,
     )
 
@@ -218,39 +227,6 @@ def get_random_jpg_content(size=10, width=1, height=1):
     return get_random_img_content('JPEG', size, width, height)
 
 
-def get_random_pdf_content(
-    size=10,
-):
-    content = """%PDF-1.5
-%\B5\ED\AE\FB
-6 0 obj
-<< /Type /Page
->>
-endobj
-{}
-1 0 obj
-<< /Type /Pages
-   /Kids [ 6 0 R ]
-   /Count 1
->>
-endobj
-13 0 obj
-<< /Type /Catalog
-   /Pages 1 0 R
->>
-endobj
-trailer
-<< /Root 13 0 R
->>
-%%EOF"""
-    size = convert_size_to_bytes(size)
-    size -= len(content.format(''))
-    additional_content = ''
-    if size > 0:
-        additional_content = bytearray(size).decode()
-    return content.format(additional_content)
-
-
 def get_random_png_content(size=10, width=1, height=1):
     return get_random_img_content('PNG', size, width, height)
 
@@ -259,31 +235,39 @@ def get_random_svg_content(size=10, width=1, height=1):
     """
     generates svg content
     """
-    from xml.etree import ElementTree as et
-
     size = convert_size_to_bytes(size)
-    doc = et.Element(
+    doc = ElementTree.Element(
         'svg',
-        width=force_text(width),
-        height=force_text(height),
+        width=str(width),
+        height=str(height),
         version='1.1',
         xmlns='http://www.w3.org/2000/svg',
     )
-    et.SubElement(
+    ElementTree.SubElement(
         doc,
         'rect',
-        width=force_text(width),
-        height=force_text(height),
-        fill='rgb(%s, %s, %s)'
-        % (random.randint(1, 255), random.randint(1, 255), random.randint(1, 255)),
+        width=str(width),
+        height=str(height),
+        style=f'fill:{get_random_color()};stroke-width:3;stroke:{get_random_color()}',
     )
-    output = StringIO()
+
+    circle_r = int(min(width, height) / 2 - 1)
+    ElementTree.SubElement(
+        doc,
+        'circle',
+        r=str(circle_r),
+        cx=str(int(width / 2)),
+        cy=str(int(height / 2)),
+        style=f'fill:{get_random_color()};stroke-width:3;stroke:{get_random_color()}',
+    )
+
+    output = io.StringIO()
     header = (
         '<?xml version=\"1.0\" standalone=\"no\"?>\n'
         '<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" \"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">\n'
     )
     output.write(header)
-    output.write(et.tostring(doc).decode())
+    output.write(ElementTree.tostring(doc).decode())
     content = output.getvalue()
     size -= len(content)
     if size > 0:

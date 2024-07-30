@@ -22,10 +22,10 @@ class Case:
     def get_code(self):
         code = inspect.getsource(self._test)
         sig = signature(self._test)
-        indent = re.findall("^( *)def ", code)[0]
-        code = re.sub(f"(^|\n){indent}", r"\1", code)
+        indent = re.findall(r"^( *)def ", code)[0]
+        code = re.sub(fr"(^|\n){indent}", r"\1", code)
         first_line, other_code = code.split("\n", 1)
-        first_line = re.sub("def (.+?)\(self,", f"def {self.name}(self,", first_line)
+        first_line = re.sub(r"def (.+?)\(self,", f"def {self.name}(self,", first_line)
         first_line = first_line.replace("*args,", "")
         params = list(sig.parameters.values())
         other_kwargs = {}
@@ -38,7 +38,7 @@ class Case:
                     other_kwargs[p.name] = value
                 if not callable(value):
                     first_line = re.sub(
-                        f"({p.name},?|{p.name}=.+?,?)",
+                        fr"({p.name},?|{p.name}=.+?,?)",
                         "",
                         first_line,
                     )
@@ -46,14 +46,14 @@ class Case:
                         continue
                     other_code = f"{indent}{p.name} = {value!r}\n" + other_code
         other_code = f"{indent}kwargs = {self._kwargs}\n" + other_code
-        first_line = re.sub(",\s*\*\*kwargs", "", first_line)
+        first_line = re.sub(r",\s*\*\*kwargs", "", first_line)
         code = first_line + "\n" + other_code
-        for call_form_method in re.findall("form\..+?\(.+?\)", code):
-            method_name = re.findall("form.(.+?)\(", call_form_method)[0]
+        for call_form_method in re.findall(r"form\..+?\(.+?\)", code):
+            method_name = re.findall(r"form.(.+?)\(", call_form_method)[0]
             method = getattr(form, method_name)
             arguments = {}
             unnamed_arguments = []
-            for _argument in re.findall("form\..+?\((.+?)\)", call_form_method)[
+            for _argument in re.findall(r"form\..+?\((.+?)\)", call_form_method)[
                 0
             ].split(","):
                 argument_name, *argument_value = _argument.split("=", 1)
